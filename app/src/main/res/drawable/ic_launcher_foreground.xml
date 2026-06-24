@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- Outer solid protective accent circle -->
+    <path
+        android:fillColor="#4F46E5"
+        android:pathData="M54,54m-40,0a40,40 0,1 1,80 0a40,40 0,1 1,-80 0" />
+
+    <!-- Highly defined camera lens body silhouette -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,26c-15.464,0 -28,12.536 -28,28s12.536,28 28,28s28,-12.536 28,-28s-12.536,-28 -28,-28zM54,76c-12.15,0 -22,-9.85 -22,-22s9.85,-22 22,-22s22,9.85 22,22s-9.85,22 -22,22z" />
+
+    <!-- Shutter speed aperture blade center circles -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,38m-11,0a11,11 0,1 1,22 0a11,11 0,1 1,-22 0" />
+
+    <path
+        android:fillColor="#6366F1"
+        android:pathData="M54,38m-7,0a7,7 0,1 1,14 0a7,7 0,1 1,-14 0" />
+
+    <!-- Premium glass flash indicator -->
+    <path
+        android:fillColor="#FFF"
+        android:pathData="M39,37h4v4h-4z" />
+</vector>

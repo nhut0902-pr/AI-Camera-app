@@ -1,0 +1,6 @@
+{
+  "name": "Offline AI Camera",
+  "description": "Premium Offline AI Camera with Scene Detection, Face Enhancement, Portrait mode, and AI enhancement filters running fully locally.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
