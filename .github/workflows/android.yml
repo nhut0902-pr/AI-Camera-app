@@ -30,6 +30,18 @@ jobs:
 
       - name: Prepare Signing Keystore
         run: |
+          echo "Preparing debug keystore..."
+          if [ -f debug.keystore.base64 ]; then
+            echo "Decoding debug.keystore.base64..."
+            base64 -d debug.keystore.base64 > debug.keystore
+          else
+            echo "debug.keystore.base64 not found, generating a fallback debug keystore..."
+            keytool -genkey -v -keystore debug.keystore \
+              -storepass android -keypass android -alias androiddebugkey \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Android Debug, O=Android, C=US"
+          fi
+
           echo "Generating a secure self-signed keystore for signing the release APK..."
           keytool -genkey -v -keystore my-upload-key.jks \
             -alias upload \
