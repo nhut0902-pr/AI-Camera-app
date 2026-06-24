@@ -150,82 +150,83 @@ class CameraViewModel(private val repository: PhotoRepository) : ViewModel() {
     fun processAndSaveCapturedImage(context: Context, imageProxy: ImageProxy) {
         _isProcessing.value = true
         viewModelScope.launch(Dispatchers.Default) {
-            try {
-                // Initialize model context once if needed
-                SceneDetector.init(context)
+            imageProxy.use { proxy ->
+                try {
+                    // Initialize model context once if needed
+                    SceneDetector.init(context)
 
-                // Convert ImageProxy to standard Bitmap and rotate properly based on EXIF parameters
-                val rotationDegrees = imageProxy.imageInfo.rotationDegrees
-                val buffer = imageProxy.planes[0].buffer
-                val bytes = ByteArray(buffer.remaining())
-                buffer.get(bytes)
-                val rawBitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                
-                val correctedBitmap = if (rotationDegrees != 0) {
-                    val matrix = Matrix().apply { postRotate(rotationDegrees.toFloat()) }
-                    Bitmap.createBitmap(rawBitmap, 0, 0, rawBitmap.width, rawBitmap.height, matrix, true)
-                } else {
-                    rawBitmap
-                }
-                
-                imageProxy.close() // Close proxy promptly to allow CameraX buffer reuse
-
-                // 2. Execute highly parallel Post Processing pipeline
-                val result = PostProcessingPipeline.process(
-                    inputBitmap = correctedBitmap,
-                    applyHdr = _hdrEnabled.value,
-                    applyPortraitBlur = _portraitModeEnabled.value,
-                    blurScale = _blurRadius.value,
-                    applyLiveFilterId = _activeFilter.value
-                )
-
-                // 3. Save "Before" (uncorrected) and "After" (enhanced) representations on storage
-                val timestampStr = SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.US).format(Date())
-                val storageDir = context.getExternalFilesDir("OfflineAICamera") ?: context.filesDir
-                if (!storageDir.exists()) storageDir.mkdirs()
-
-                val beforeFile = File(storageDir, "IMG_BEFORE_$timestampStr.jpg")
-                val afterFile = File(storageDir, "IMG_AFTER_$timestampStr.jpg")
-
-                withContext(Dispatchers.IO) {
-                    FileOutputStream(beforeFile).use { out ->
-                        correctedBitmap.compress(Bitmap.CompressFormat.JPEG, 92, out)
+                    // Convert ImageProxy to standard Bitmap and rotate properly based on EXIF parameters
+                    val rotationDegrees = proxy.imageInfo.rotationDegrees
+                    val buffer = proxy.planes[0].buffer
+                    val bytes = ByteArray(buffer.remaining())
+                    buffer.get(bytes)
+                    val rawBitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                        ?: throw java.io.IOException("Failed to decode byte array to bitmap")
+                    
+                    val correctedBitmap = if (rotationDegrees != 0) {
+                        val matrix = Matrix().apply { postRotate(rotationDegrees.toFloat()) }
+                        Bitmap.createBitmap(rawBitmap, 0, 0, rawBitmap.width, rawBitmap.height, matrix, true)
+                    } else {
+                        rawBitmap
                     }
-                    FileOutputStream(afterFile).use { out ->
-                        result.outputBitmap.compress(Bitmap.CompressFormat.JPEG, 92, out)
-                    }
-                }
 
-                // 4. Save entity row to local Room database
-                val photoEntity = CapturedPhoto(
-                    filePath = beforeFile.absolutePath,
-                    enhancedFilePath = afterFile.absolutePath,
-                    sceneType = result.sceneType,
-                    faceCount = result.faceCount,
-                    brightness = result.avgBrightness,
-                    contrast = result.avgContrast,
-                    isEnhanced = true,
-                    appliedFilters = buildString {
-                        if (_hdrEnabled.value) append("HDR")
-                        if (_activeFilter.value != "none") {
-                            if (isNotEmpty()) append(", ")
-                            append(_activeFilter.value.replaceFirstChar { it.uppercase() })
+                    // 2. Execute highly parallel Post Processing pipeline
+                    val result = PostProcessingPipeline.process(
+                        inputBitmap = correctedBitmap,
+                        applyHdr = _hdrEnabled.value,
+                        applyPortraitBlur = _portraitModeEnabled.value,
+                        blurScale = _blurRadius.value,
+                        applyLiveFilterId = _activeFilter.value
+                    )
+
+                    // 3. Save "Before" (uncorrected) and "After" (enhanced) representations on storage
+                    val timestampStr = SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.US).format(Date())
+                    val storageDir = context.getExternalFilesDir("OfflineAICamera") ?: context.filesDir
+                    if (!storageDir.exists()) storageDir.mkdirs()
+
+                    val beforeFile = File(storageDir, "IMG_BEFORE_$timestampStr.jpg")
+                    val afterFile = File(storageDir, "IMG_AFTER_$timestampStr.jpg")
+
+                    withContext(Dispatchers.IO) {
+                        FileOutputStream(beforeFile).use { out ->
+                            correctedBitmap.compress(Bitmap.CompressFormat.JPEG, 92, out)
                         }
-                    },
-                    processingTimeMs = result.processingTimeMs,
-                    timestamp = System.currentTimeMillis()
-                )
+                        FileOutputStream(afterFile).use { out ->
+                            result.outputBitmap.compress(Bitmap.CompressFormat.JPEG, 92, out)
+                        }
+                    }
 
-                val primaryId = repository.insertPhoto(photoEntity)
-                val insertedPhoto = photoEntity.copy(id = primaryId)
+                    // 4. Save entity row to local Room database
+                    val photoEntity = CapturedPhoto(
+                        filePath = beforeFile.absolutePath,
+                        enhancedFilePath = afterFile.absolutePath,
+                        sceneType = result.sceneType,
+                        faceCount = result.faceCount,
+                        brightness = result.avgBrightness,
+                        contrast = result.avgContrast,
+                        isEnhanced = true,
+                        appliedFilters = buildString {
+                            if (_hdrEnabled.value) append("HDR")
+                            if (_activeFilter.value != "none") {
+                                if (isNotEmpty()) append(", ")
+                                append(_activeFilter.value.replaceFirstChar { it.uppercase() })
+                            }
+                        },
+                        processingTimeMs = result.processingTimeMs,
+                        timestamp = System.currentTimeMillis()
+                    )
 
-                // Open this newly captured image in comparison view immediately
-                _selectedPhoto.value = insertedPhoto
-                
-            } catch (e: Exception) {
-                Log.e(TAG, "Error in image capture pipeline: ${e.message}", e)
-            } finally {
-                _isProcessing.value = false
+                    val primaryId = repository.insertPhoto(photoEntity)
+                    val insertedPhoto = photoEntity.copy(id = primaryId)
+
+                    // Open this newly captured image in comparison view immediately
+                    _selectedPhoto.value = insertedPhoto
+                    
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error in image capture pipeline: ${e.message}", e)
+                } finally {
+                    _isProcessing.value = false
+                }
             }
         }
     }

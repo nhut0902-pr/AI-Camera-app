@@ -260,6 +260,7 @@ fun CameraLiveView(
     val portraitModeEnabled by viewModel.portraitModeEnabled.collectAsStateWithLifecycle()
     val isProcessing by viewModel.isProcessing.collectAsStateWithLifecycle()
 
+    var previewUseCase by remember { mutableStateOf<Preview?>(null) }
     var imageCaptureUseCase by remember { mutableStateOf<ImageCapture?>(null) }
     var cameraControlUseCase by remember { mutableStateOf<CameraControl?>(null) }
 
@@ -274,6 +275,7 @@ fun CameraLiveView(
         }
         
         val preview = Preview.Builder().build()
+        previewUseCase = preview
         
         val imageCapture = ImageCapture.Builder()
             .setFlashMode(flashMode)
@@ -334,13 +336,7 @@ fun CameraLiveView(
             },
             modifier = Modifier.fillMaxSize(),
             update = { previewView ->
-                // Attaches preview use case to the surface view
-                val providerFuture = ProcessCameraProvider.getInstance(context)
-                providerFuture.addListener({
-                    val provider = providerFuture.get()
-                    val preview = Preview.Builder().build()
-                    preview.setSurfaceProvider(previewView.surfaceProvider)
-                }, ContextCompat.getMainExecutor(context))
+                previewUseCase?.setSurfaceProvider(previewView.surfaceProvider)
             }
         )
 
