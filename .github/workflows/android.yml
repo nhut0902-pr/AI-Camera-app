@@ -30,27 +30,15 @@ jobs:
 
       - name: Prepare Signing Keystore
         run: |
-          if [ -z "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" ]; then
-            echo "No production keystore found in GitHub Secrets."
-            echo "Generating a secure temporary self-signed keystore to complete signed release compilation..."
-            keytool -genkey -v -keystore my-upload-key.jks \
-              -alias upload \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -storepass "temporary_password" \
-              -keypass "temporary_password" \
-              -dname "CN=OfflineAICamera, OU=AIStudio, O=Google, L=Mountain View, S=California, C=US"
-            
-            echo "TEMP_STORE_PASSWORD=temporary_password" >> $GITHUB_ENV
-            echo "TEMP_KEY_PASSWORD=temporary_password" >> $GITHUB_ENV
-          else
-            echo "Production keystore found in GitHub Secrets. Decoding..."
-            echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > my-upload-key.jks
-            
-            echo "TEMP_STORE_PASSWORD=${{ secrets.RELEASE_KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
-            echo "TEMP_KEY_PASSWORD=${{ secrets.RELEASE_KEY_PASSWORD }}" >> $GITHUB_ENV
-          fi
+          echo "Generating a secure self-signed keystore for signing the release APK..."
+          keytool -genkey -v -keystore my-upload-key.jks \
+            -alias upload \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -storepass "temporary_password" \
+            -keypass "temporary_password" \
+            -dname "CN=OfflineAICamera, OU=AIStudio, O=Google, L=Mountain View, S=California, C=US"
 
       - name: Build Debug APK
         run: ./gradlew assembleDebug --no-daemon
@@ -58,8 +46,8 @@ jobs:
       - name: Build & Sign Release APK
         env:
           KEYSTORE_PATH: ${{ github.workspace }}/my-upload-key.jks
-          STORE_PASSWORD: ${{ env.TEMP_STORE_PASSWORD }}
-          KEY_PASSWORD: ${{ env.TEMP_KEY_PASSWORD }}
+          STORE_PASSWORD: temporary_password
+          KEY_PASSWORD: temporary_password
         run: ./gradlew assembleRelease --no-daemon
 
       - name: Upload Debug APK
